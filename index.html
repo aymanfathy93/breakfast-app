@@ -251,6 +251,16 @@ body::after{bottom:90px;right:-16px;transform:rotate(150deg)}
 .trash{border-radius:50%}
 .qs button,.step button{box-shadow:0 3px 10px rgba(21,87,201,.15)}
 #login .em{background:radial-gradient(circle at 35% 30%,#fff 0,#DCE8FC 55%,#BCD3F8 100%)}
+/* العداد التنازلي */
+.cdc{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:14px 16px 12px;margin-bottom:14px;text-align:center;border:1px solid rgba(255,255,255,.9)}
+.cdc h4{margin:0 0 4px;color:var(--ink);font-size:15px;font-weight:800}
+.cdc .dg{display:flex;justify-content:center;align-items:flex-start;gap:6px;direction:rtl}
+.cdc .u{min-width:74px}
+.cdc .u b{display:block;font-size:44px;font-weight:900;line-height:1.15;color:var(--c,#1E8E4A);font-variant-numeric:tabular-nums}
+.cdc .u span{font-size:12.5px;color:var(--mut);font-weight:700}
+.cdc .sp{font-size:40px;font-weight:900;color:var(--c,#1E8E4A);line-height:1.15}
+.cdc .ft{font-size:12.5px;color:var(--mut);margin-top:4px}
+.cdc.end b,.cdc.end .sp{color:var(--bad)}
 /* شريط التحميل الرفيع */
 #load{position:fixed;inset:0 0 auto 0;height:3px;background:transparent;z-index:80;display:block;overflow:hidden}
 #load.hide{display:none}
@@ -463,7 +473,18 @@ function dlLeft(t){ if(!t) return null; var p=t.split(':').map(Number), n=new Da
 function dlHtml(t){ if(!t) return ''; return '<div class="hl">⏳ <span class="cd" data-dl="'+esc(t)+'">'+dlText(t)+'</span></div>'; }
 function dlText(t){ var s=dlLeft(t); if(s==null) return ''; if(s<=0) return '<b style="color:var(--bad)">وقت الطلب خلص ('+t12(t)+')</b>';
   var hh=Math.floor(s/3600), mm=Math.floor(s%3600/60), ss=s%60; return 'باقي <b>'+(hh?hh+':':'')+String(mm).padStart(hh?2:1,'0')+':'+String(ss).padStart(2,'0')+'</b> على الطلب ('+t12(t)+')'; }
-setInterval(function(){ document.querySelectorAll('.cd').forEach(function(el){ el.innerHTML=dlText(el.dataset.dl); }); }, 1000);
+function cdInner(t){
+  var s=dlLeft(t); if(s==null) return '';
+  if(s<=0) return '<h4>⏰ وقت الطلب خلص</h4><div class="ft">موعد الإغلاق كان '+t12(t)+'</div>';
+  var hh=Math.floor(s/3600), mm=Math.floor(s%3600/60), ss=s%60, c=s<=120?'var(--bad)':(s<=600?'#E08A00':'#1E8E4A'), p=function(n){ return String(n).padStart(2,'0'); };
+  return '<h4>الوقت المتبقي لإغلاق الطلبات</h4><div class="dg" style="--c:'+c+'"><div class="u"><b>'+p(hh)+'</b><span>ساعة</span></div><div class="sp">:</div><div class="u"><b>'+p(mm)+'</b><span>دقيقة</span></div><div class="sp">:</div><div class="u"><b>'+p(ss)+'</b><span>ثانية</span></div></div>'
+    +'<div class="ft">موعد الإغلاق: '+t12(t).replace(' ص',' صباحاً').replace(' م',' مساءً')+'</div>';
+}
+function cdCard(t){ if(!t) return ''; return '<div class="cdc'+(dlLeft(t)<=0?' end':'')+'" data-cd="'+esc(t)+'">'+cdInner(t)+'</div>'; }
+setInterval(function(){
+  document.querySelectorAll('.cd').forEach(function(el){ el.innerHTML=dlText(el.dataset.dl); });
+  document.querySelectorAll('.cdc').forEach(function(el){ var t=el.dataset.cd; el.innerHTML=cdInner(t); el.classList.toggle('end', dlLeft(t)<=0); });
+}, 1000);
 function dLabel(k){ if(!k) return ''; var p=k.split('-').map(Number); var dt=new Date(p[0],p[1]-1,p[2]); return DN[dt.getDay()]+' '+p[2]+'/'+p[1]; }
 
 /* ================= Icons ================= */
@@ -553,7 +574,7 @@ function stepper(id, q){
 function pcard(it, can, last, catText){
   var qn=qtyOf(it.id), nm=it.name+' '+(catText||''), pend=(pk(it.id) in PEND);
   return '<div class="pc '+(pend?'pend':(qn?'sel':''))+'">'+(pend?'<span class="ok">⏳ بيتسجل</span>':(qn?'<span class="ok">✓ اتسجل</span>':''))+'<div class="ph">'+thumb(nm, it.img)+'</div>'
-    +(last?'<span class="bd">آخر طلب</span>':'')
+    +(last&&!qn&&!pend?'<span class="bd">آخر طلب</span>':'')
     +'<div class="nm">'+esc(it.name)+'</div><div class="pr">'+nf(it.price)+' <small>ج</small></div>'
     +(can?stepper(it.id,qn):'')+'</div>';
 }
@@ -647,6 +668,7 @@ function vB(){
   }
   if(d.bBill) h+='<div class="claim"><button class="btn sm soft" onclick="openBill(\''+d.bBill.id+'\')">📋 فاتورة النهارده</button></div>';
   h+='</div></div>';
+  if(w.isOpen) h+=cdCard(w.close);
 
   h+=segHtml();
   if(S.bView!=='menu') return h+ordPanel(S.ord&&S.ord.find(function(x){ return x.type==='فطار'; }));
@@ -789,11 +811,12 @@ function vLMenu(){
   var lv=S.lv, b=lv.bill, closed=b.status==='مقفول';
   var h='<div class="hero"><button class="rbtn" onclick="S.lv=null;setCtx(\'B\',null);render()">→</button><div class="info"><h2>'+esc(b.rest)+'</h2>'
     +'<span class="pill '+(closed?'off':'on')+'">'+(closed?'الطلب مقفول':'الطلب مفتوح')+'</span>'
-    +'<div class="hl">🛵 المسؤول: <b>'+esc(b.respName)+'</b></div>'+(closed?'':dlHtml(b.deadline))
+    +'<div class="hl">🛵 المسؤول: <b>'+esc(b.respName)+'</b></div>'
     +'<div class="claim"><button class="btn sm soft" onclick="openBill(\''+esc(b.id)+'\')">📋 الفاتورة</button>'
     +(isMgr(b)?'<button class="btn sm '+(closed?'gr':'red')+'" onclick="quickStatus(\''+esc(b.id)+'\',\''+(closed?'مفتوح':'مقفول')+'\')">'+(closed?'🔓 افتح الطلب':'🔒 اقفل الطلب')+'</button>':'')
     +'</div></div></div>';
   var can=canOrderL();
+  if(!closed) h+=cdCard(b.deadline);
   h+=segHtml();
   if(S.bView!=='menu') return h+ordPanel(S.ord&&S.ord.find(function(x){ return x.id===b.id; }));
   h+=myCard(lv.mine,'L', b.status!=='مقفول'||isMgr(b));
