@@ -861,11 +861,57 @@ function ordPanel(b){
       +'<div class="mut" style="font-size:12px;margin:0 2px 6px">أصناف '+nf(b.T)+' + دليفري '+nf(b.deliv)+'</div>'
       +(b.persons.length?b.persons.map(function(p){ return '<div class="oi"><span>'+esc(p.name)+(p.uid===S.d.me.uid?' <span class="tag">انت</span>':'')+'</span><b style="background:'+(p.paid?'var(--okbg)':'var(--blue2)')+';color:'+(p.paid?'var(--ok)':'var(--ink)')+';min-width:58px">'+nf(p.share)+'</b>'
         +(b.manage?'<button class="paid '+(p.paid?'on':'')+'" onclick="ordPaid(\''+esc(b.id)+'\',\''+esc(p.uid)+'\','+(!p.paid)+')"></button>':'<span class="badge '+(p.paid?'ok':'bad')+'">'+(p.paid?'دفع':'لسه')+'</span>')+'</div>'; }).join(''):'<div class="empty" style="padding:14px">لسه محدش طلب</div>')
-      +'<div class="row" style="margin-top:12px"><button class="btn sm ghost" onclick="copyAcc('+idx+')">نسخ الحساب</button><button class="btn sm soft" onclick="openBill(\''+esc(b.id)+'\')">📋 التفاصيل بالأصناف</button></div>';
+      +'<div class="row" style="margin-top:12px"><button class="btn sm gr" onclick="shareAcc('+idx+')">📤 مشاركة صورة</button><button class="btn sm ghost" onclick="copyAcc('+idx+')">نسخ الحساب</button><button class="btn sm soft" onclick="openBill(\''+esc(b.id)+'\')">📋 التفاصيل بالأصناف</button></div>';
   }
   return h+'</div>';
 }
 async function ordPaid(id, uid, paid){ try{ await api('setPaid',{id:id,uid:uid,paid:paid}); await loadOrd(); }catch(e){ toast(e.message,'err'); } }
+function rr(x,y,w,h,r,ctx){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+async function accImage(b){
+  try{ await document.fonts.load('900 40px Cairo'); await document.fonts.load('700 30px Cairo'); }catch(e){}
+  var W=1080, P=50, RH=84, n=b.persons.length, H=360+n*RH+200;
+  var c=document.createElement('canvas'); c.width=W; c.height=H; var x=c.getContext('2d'); x.direction='rtl';
+  var g=x.createLinearGradient(0,0,0,H); g.addColorStop(0,'#F5F9FF'); g.addColorStop(1,'#E2ECFB'); x.fillStyle=g; x.fillRect(0,0,W,H);
+  x.fillStyle='#fff'; x.shadowColor='rgba(21,87,201,.12)'; x.shadowBlur=30; rr(P,P,W-2*P,H-2*P,40,x); x.fill(); x.shadowBlur=0;
+  var R=W-P-44, L=P+44;
+  x.textAlign='right'; x.fillStyle='#0F2E6B'; x.font='900 52px Cairo'; x.fillText('💵 حساب '+(b.type==='فطار'?'الفطار':b.rest), R, P+100);
+  x.fillStyle='#7C8AA8'; x.font='700 30px Cairo'; x.fillText(dLabel(b.date)+'  ·  المسؤول: '+(b.respName||'—'), R, P+150);
+  x.fillStyle='#E6EDF8'; x.fillRect(L, P+185, R-L, 3);
+  var y=P+215;
+  b.persons.forEach(function(p,i){
+    if(i%2===0){ x.fillStyle='#F6F9FF'; rr(L-10,y,R-L+20,RH-10,18,x); x.fill(); }
+    var cy=y+(RH-10)/2+11;
+    x.textAlign='right'; x.fillStyle='#24345C'; x.font='800 34px Cairo'; x.fillText(p.name, R-14, cy);
+    x.textAlign='left'; x.fillStyle=p.paid?'#2E9B4F':'#0F2E6B'; x.font='900 38px Cairo'; x.fillText(nf(p.share)+' ج', L+190, cy);
+    x.fillStyle=p.paid?'#E3F4E7':'#FDE8EB'; rr(L+10,y+14,150,RH-38,22,x); x.fill();
+    x.textAlign='center'; x.fillStyle=p.paid?'#2E9B4F':'#E0475B'; x.font='800 26px Cairo'; x.fillText(p.paid?'✓ دفع':'لسه', L+85, cy-2);
+    y+=RH;
+  });
+  var paid=b.persons.filter(function(p){ return p.paid; }).reduce(function(a,p){ return a+p.share; },0);
+  y+=20; var bw=(R-L-40)/3, boxes=[['المطلوب',b.target,'#0F2E6B'],['اتجمع',paid,'#2E9B4F'],['باقي',b.target-paid,(b.target-paid>0?'#E0475B':'#2E9B4F')]];
+  boxes.forEach(function(bx,i){ var bx0=R-(i+1)*bw-i*20; x.fillStyle='#EEF4FD'; rr(bx0,y,bw,130,24,x); x.fill();
+    x.textAlign='center'; x.fillStyle='#7C8AA8'; x.font='700 28px Cairo'; x.fillText(bx[0], bx0+bw/2, y+48);
+    x.fillStyle=bx[2]; x.font='900 44px Cairo'; x.fillText(nf(bx[1]), bx0+bw/2, y+102); });
+  y+=170; x.textAlign='right'; x.fillStyle='#7C8AA8'; x.font='600 26px Cairo';
+  x.fillText('أصناف '+nf(b.T)+' + دليفري '+nf(b.deliv)+'  ·  '+b.persons.length+' فرد', R, y);
+  x.textAlign='left'; x.fillStyle='#1557C9'; x.font='800 26px Cairo'; x.fillText('🥗 الفطار والغداء', L, y);
+  return await new Promise(function(res){ c.toBlob(res,'image/png'); });
+}
+async function shareAcc(i){
+  var b=S.ord[i]; if(!b||!b.persons.length) return toast('لسه محدش طلب','err');
+  loading(true); var blob; try{ blob=await accImage(b); } finally{ loading(false); }
+  var name='حساب-'+(b.type==='فطار'?'الفطار':b.rest)+'-'+b.date+'.png', file=null;
+  try{ file=new File([blob], name, {type:'image/png'}); }catch(e){}
+  if(file && navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title:'الحساب', text:'حساب '+(b.type==='فطار'?'الفطار':b.rest)+' - '+dLabel(b.date)}); return; }
+    catch(e){ if(e && e.name==='AbortError') return; }
+  }
+  var url=URL.createObjectURL(blob);
+  modal('<div class="sh-hd"><h3>صورة الحساب</h3><button class="rbtn" onclick="closeModal()">✕</button></div>'
+    +'<img src="'+url+'" style="width:100%;border-radius:18px;box-shadow:var(--sh)">'
+    +'<p class="mut" style="font-size:13px;text-align:center;margin:10px 0">اضغط ضغطة طويلة على الصورة واختار مشاركة، وبعدين واتساب والجروب</p>'
+    +'<a class="btn full" style="display:block;text-align:center;text-decoration:none" href="'+url+'" download="'+esc(name)+'">⬇️ تحميل الصورة</a>');
+}
 function copyAcc(i){ var b=S.ord[i]; var t='حساب '+(b.type==='فطار'?'الفطار':b.rest)+' - '+dLabel(b.date)+'\n'+b.persons.map(function(p){ return '• '+p.name+': '+nf(p.share)+(p.paid?' ✔':''); }).join('\n')+'\n\nالإجمالي: '+nf(b.target);
   try{ navigator.clipboard.writeText(t).then(function(){ toast('اتنسخ ✔','ok'); },function(){ prompt('انسخ الحساب',t); }); }catch(e){ prompt('انسخ الحساب',t); } }
 function ordText(b){ return 'اوردر '+(b.type==='فطار'?'فطار':b.rest)+' - '+dLabel(b.date)+'\n'+b.agg.map(function(x){ return '• '+x.name+' × '+x.qty; }).join('\n')+'\n\nعدد الأفراد: '+b.people; }
