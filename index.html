@@ -854,7 +854,7 @@ function ordPanel(b){
     var cnt=b.agg.reduce(function(a,x){ return a+x.qty; },0);
     h+='<div class="osum"><div>الأصناف<b>'+b.agg.length+'</b></div><div>عدد القطع<b>'+cnt+'</b></div><div>الأفراد<b>'+b.people+'</b></div></div>'
       +(b.agg.length?b.agg.map(function(x){ return '<div class="oi"><div class="th" style="background:'+icBg(x.name)+'">'+icon(x.name)+'</div><span>'+esc(x.name)+'</span><b>'+x.qty+'</b></div>'; }).join(''):'<div class="empty" style="padding:14px">لسه محدش طلب</div>')
-      +'<div class="row" style="margin-top:12px"><button class="btn sm gr" onclick="waOrd('+idx+')">واتساب للمطعم</button><button class="btn sm ghost" onclick="copyOrd('+idx+')">نسخ الأوردر</button></div>';
+      +'<div class="row" style="margin-top:12px"><button class="btn sm gr" onclick="waOrd('+idx+')">📤 إرسال الأوردر</button><button class="btn sm ghost" onclick="copyOrd('+idx+')">نسخ الأوردر</button></div>';
   } else {
     var paid=b.persons.filter(function(p){ return p.paid; }).reduce(function(a,p){ return a+p.share; },0);
     h+='<div class="osum"><div>المطلوب<b>'+nf(b.target)+'</b></div><div>اتجمع<b style="color:var(--ok)">'+nf(paid)+'</b></div><div>باقي<b style="color:'+(b.target-paid>0?'var(--bad)':'var(--ok)')+'">'+nf(b.target-paid)+'</b></div></div>'
@@ -919,9 +919,11 @@ function waOrd(i){ waSend(S.ord[i]); }
 function copyOrd(i){ var t=ordText(S.ord[i]); try{ navigator.clipboard.writeText(t).then(function(){ toast('اتنسخ ✔','ok'); },function(){ prompt('انسخ الأوردر',t); }); }catch(e){ prompt('انسخ الأوردر',t); } }
 function waSend(b){
   if(!b.agg.length) return toast('لسه مفيش طلبات','err');
-  var ph=String(b.phone||'').replace(/\D/g,''); if(ph.charAt(0)==='0') ph='2'+ph;
-  var a=document.createElement('a'); a.href='https://wa.me/'+ph+'?text='+encodeURIComponent(ordText(b)); a.target='_blank'; a.rel='noopener'; document.body.appendChild(a); a.click(); a.remove();
+  var t=ordText(b);
+  if(navigator.share){ navigator.share({text:t}).catch(function(e){ if(!e || e.name!=='AbortError') waOpen(t); }); return; }
+  waOpen(t);
 }
+function waOpen(t){ var a=document.createElement('a'); a.href='https://wa.me/?text='+encodeURIComponent(t); a.target='_blank'; a.rel='noopener'; document.body.appendChild(a); a.click(); a.remove(); }
 
 /* ================= Bill ================= */
 async function openBill(id){ try{ S.bill=await api('getBill', id); drawBill(); }catch(e){ toast(e.message,'err'); } }
@@ -933,7 +935,7 @@ function drawBill(){
     +'<div class="stat"><span>الدليفري'+(b.type==='فطار'?' (أوتوماتيك)':'')+'</span>'+(b.canDeliv?'<div class="row" style="flex-wrap:nowrap"><input id="dv" class="field" style="padding:5px 9px" inputmode="decimal" value="'+(b.deliv||'')+'" placeholder="0"><button class="btn sm" onclick="saveDeliv()">✔</button></div>':'<b>'+nf(b.deliv)+'</b>')+'</div>'
     +'<div class="stat"><span>المطلوب تجميعه</span><b>'+nf(b.target)+'</b></div>'
     +'<div class="stat"><span>اتجمع</span><b style="color:'+(left>0?'var(--bad)':'var(--ok)')+'">'+nf(b.paidSum)+'</b>'+(left>0?'<span>باقي '+nf(left)+'</span>':'')+'</div></div>'
-    +'<div class="row" style="margin-bottom:12px"><button class="btn sm gr" onclick="sendWA()">واتساب للمطعم</button>'
+    +'<div class="row" style="margin-bottom:12px"><button class="btn sm gr" onclick="sendWA()">📤 إرسال الأوردر</button>'
     +(b.manage&&b.type==='غداء'?'<button class="btn sm '+(b.status==='مقفول'?'gr':'red')+'" onclick="toggleStatus()">'+(b.status==='مقفول'?'🔓 افتح الطلب':'🔒 اقفل الطلب')+'</button>':'')
     +(b.type==='فطار'&&me.role==='admin'&&b.resp!==me.uid?'<button class="btn sm soft" onclick="adminClaim()">خليني المسؤول</button>':'')+'</div>';
   if(!b.people.length) h+='<div class="empty"><b>🧾</b>لسه محدش طلب</div>';
